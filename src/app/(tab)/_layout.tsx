@@ -5,7 +5,7 @@
 
 import { useTheme } from '@/hooks/use-theme';
 import { Tabs } from 'expo-router';
-import { ChefHat, User } from 'lucide-react-native';
+import { ChefHat, ShoppingCart, User, Notebook } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { colors: theme } = useTheme();
@@ -29,6 +29,7 @@ export default function TabLayout() {
         },
       }}
     >
+
       <Tabs.Screen
         name="index"
         options={{
@@ -36,6 +37,15 @@ export default function TabLayout() {
           tabBarIcon: ({ size, color }) => <ChefHat size={size} color={color} />,
         }}
       />
+      
+      <Tabs.Screen
+        name="shopping-list"
+        options={{
+          title: 'Cooking List',
+          tabBarIcon: ({ size, color }) => <Notebook size={size} color={color} />,
+        }}
+      />
+
       <Tabs.Screen
         name="profile"
         options={{
@@ -44,7 +54,8 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Hide this tab for now */}
+      {/* Hide screens that are not tabs */}
+      <Tabs.Screen name="favorites" options={{ href : null}} />
       <Tabs.Screen name="recipe-details" options={{ href : null}} />
     </Tabs>
   );

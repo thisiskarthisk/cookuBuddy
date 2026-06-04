@@ -51,90 +51,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
       
       if (error) {
-        console.warn('Error fetching profile:', error.message);
+        console.warn('[AUTH] Error fetching profile:', error.message);
         return null;
       }
       return data as Profile;
     } catch (e) {
-      console.error('Unexpected error fetching profile:', e);
+      console.error('[AUTH] Unexpected error fetching profile:', e);
       return null;
     }
   }
 
-  async function ensureProfile(user: User) {
-    let userProfile = await fetchProfile(user.id);
-    
-    if (!userProfile) {
-      console.log('Profile missing for user, creating default...');
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert([
-          {
-            id: user.id,
-            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-            email: user.email,
-            user_type: 'user',
-            status: 'active'
-          }
-        ])
-        .select()
-        .maybeSingle();
+  async function ensureProfile(authUser: User) {
+    try {
+      let userProfile = await fetchProfile(authUser.id);
       
-      if (error) {
-        console.error('Failed to create default profile:', error.message);
-      } else {
-        userProfile = data as Profile;
+      if (!userProfile) {
+        console.log('[AUTH] Profile missing for user, creating default...');
+        const { data, error } = await supabase
+          .from('profiles')
+          .upsert([ // Using upsert to prevent unique constraint errors
+            {
+              id: authUser.id,
+              name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+              email: authUser.email,
+              user_type: 'user',
+              status: 'active'
+            }
+          ])
+          .select()
+          .maybeSingle();
+        
+        if (error) {
+          console.error('[AUTH] Failed to create/upsert profile:', error.message);
+        } else {
+          userProfile = data as Profile;
+        }
       }
+      return userProfile;
+    } catch (e) {
+      console.error('[AUTH] Exception in ensureProfile:', e);
+      return null;
     }
-    return userProfile;
   }
+
+  const updateAuthState = async (newSession: Session | null) => {
+    setLoading(true);
+    setSession(newSession);
+    const currentUser = newSession?.user ?? null;
+    setUser(currentUser);
+    
+    if (currentUser) {
+      const userProfile = await ensureProfile(currentUser);
+      setProfile(userProfile);
+      setIsAdmin(userProfile?.user_type === 'admin');
+    } else {
+      setProfile(null);
+      setIsAdmin(false);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     // Check initial session status on startup
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      
-      if (currentUser) {
-        const userProfile = await ensureProfile(currentUser);
-        setProfile(userProfile);
-        setIsAdmin(userProfile?.user_type === 'admin');
-      } else {
-        setProfile(null);
-        setIsAdmin(false);
-      }
-      setLoading(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      updateAuthState(session);
     });
 
-    // Listen for incoming auth changes (Login, logout, session expiration)
+    // Listen for incoming auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      
-      if (currentUser) {
-        const userProfile = await ensureProfile(currentUser);
-        setProfile(userProfile);
-        setIsAdmin(userProfile?.user_type === 'admin');
-      } else {
-        setProfile(null);
-        setIsAdmin(false);
-      }
-      setLoading(false);
+      updateAuthState(session);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return data;
+    } catch (err: any) {
+      // If it's a network error, try one more time after a short delay
+      if (err.message === 'Network request failed' || err.status === 0) {
+        console.warn('[AUTH] Initial login failed, retrying once...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        return data;
+      }
+      throw err;
+    }
   };
 
   const signUp = async (email: string, password: string, metadata?: { full_name?: string; phone?: string }) => {
-    // 1. Auth Sign Up
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -148,8 +157,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (error) throw error;
 
-    // 2. Profile Table Insert
-    // We do this manually here. If you have a Supabase Trigger, you should disable it to avoid "Database error saving new user"
     if (data.user) {
       const { error: profileError } = await supabase
         .from('profiles')
@@ -158,19 +165,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: data.user.id,
             name: metadata?.full_name || null,
             email: email,
-            user_type: 'user', // Default role
+            user_type: 'user',
             phone: metadata?.phone || null,
             status: 'active',
-            avatar_url: null,
-            bio: null
           }
         ]);
       
       if (profileError) {
-        console.error('Error creating profile record:', profileError);
-        // If the profile fails to save, we might want to inform the user
-        // but the Auth account is already created.
-        throw new Error(`Auth account created, but profile failed: ${profileError.message}`);
+        console.error('[AUTH] Error creating profile record:', profileError);
       }
     }
     
@@ -182,13 +184,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  /**
-   * Dispatches a secure password reset link to the user's email address.
-   * Supabase handles sending this automated transactional email template.
-   */
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'cookubuddy://reset-password', // Replace with your app's custom deep-linking scheme
+      redirectTo: 'cookubuddy://reset-password',
     });
     if (error) throw error;
   };

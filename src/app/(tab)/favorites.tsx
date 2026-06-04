@@ -1,9 +1,9 @@
 import { getRecipeImageUrl } from '@/lib/images';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/hooks/use-language';
-import { supabase } from '@/lib/supabase';
+import { fetchAllRecipes, Recipe } from '@/lib/github-data';
 import { useRouter } from 'expo-router';
-import { ChefHat, Heart, ArrowLeft } from 'lucide-react-native';
+import { Heart, ArrowLeft } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,17 +18,9 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/hooks/useAuth';
 
-interface Recipe {
-  id: string;
-  sr_no: number;
-  title: string;
-  cuisine: string;
-  image_filename: string | null;
-}
-
 export default function FavoritesScreen() {
   const { colors: theme } = useTheme();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -46,59 +38,30 @@ export default function FavoritesScreen() {
   }, [user]);
 
   const loadFavorites = async () => {
-    const key = user ? `app_favorites_${user.id}` : 'app_favorites_guest';
-    const saved = await AsyncStorage.getItem(key);
-    if (saved) {
-      const favIds = JSON.parse(saved);
-      setFavorites(favIds);
-      if (favIds.length > 0) {
-        fetchFavoriteRecipes(favIds);
-      } else {
-        setRecipes([]);
-        setLoading(false);
-      }
-    } else {
-      setLoading(false);
-    }
-  };
-
-  const fetchFavoriteRecipes = async (ids: string[]) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('recipes_with_images')
-        .select('sr_no, title, image_filename, tags')
-        .in('sr_no', ids);
-
-      if (error) throw error;
-      
-      const mappedData = (data || []).map(item => {
-        let cuisine = 'General';
-        try {
-          if (item.tags) {
-            const parsed = typeof item.tags === 'string' ? JSON.parse(item.tags) : item.tags;
-            cuisine = parsed.cuisine?.[0] || 'General';
-          }
-        } catch (e) {}
-        
-        return {
-          id: item.sr_no.toString(),
-          sr_no: item.sr_no,
-          title: item.title,
-          cuisine: cuisine,
-          image_filename: item.image_filename
-        };
-      });
-      
-      setRecipes(mappedData);
+      const key = user ? `app_favorites_${user.id}` : 'app_favorites_guest';
+      const saved = await AsyncStorage.getItem(key);
+      if (saved) {
+        const favIds = JSON.parse(saved);
+        setFavorites(favIds);
+        if (favIds.length > 0) {
+          const allRecipes = await fetchAllRecipes();
+          const favoriteRecipes = allRecipes.filter(r => favIds.includes(r.sr_no.toString()));
+          setRecipes(favoriteRecipes);
+        } else {
+          setRecipes([]);
+        }
+      }
     } catch (e) {
-      console.error('Error fetching favorite recipes:', e);
+      console.error('Error loading favorites:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleFavorite = async (id: string) => {
+  const toggleFavorite = async (sr_no: number) => {
+    const id = sr_no.toString();
     const newFavs = favorites.includes(id) 
       ? favorites.filter(i => i !== id) 
       : [...favorites, id];
@@ -109,11 +72,12 @@ export default function FavoritesScreen() {
     
     // Update local recipes list if we removed one
     if (!newFavs.includes(id)) {
-      setRecipes(prev => prev.filter(r => r.id !== id));
+      setRecipes(prev => prev.filter(r => r.sr_no !== sr_no));
     }
   };
 
   const renderRecipe = ({ item }: { item: Recipe }) => {
+    const cuisine = item.tags.cuisine?.[0] || 'General';
     return (
       <TouchableOpacity 
         onPress={() => router.push({ pathname: '/(tab)/recipe-details', params: { id: item.sr_no } })} 
@@ -123,7 +87,7 @@ export default function FavoritesScreen() {
         <View style={styles.cardImageWrapper}>
           <Image source={{ uri: getRecipeImageUrl(item.image_filename) }} style={styles.cardImage} />
           <TouchableOpacity 
-            onPress={() => toggleFavorite(item.id)} 
+            onPress={() => toggleFavorite(item.sr_no)} 
             style={[styles.favBadge, { backgroundColor: theme.cardBg }]}
           >
             <Heart size={16} color="#EA4335" fill="#EA4335" />
@@ -131,7 +95,7 @@ export default function FavoritesScreen() {
         </View>
         <View style={styles.cardContent}>
           <Text style={[styles.recipeTitle, { color: theme.text }]} numberOfLines={2}>{item.title}</Text>
-          <Text style={[styles.recipeSub, { color: theme.textSecondary }]}>{item.cuisine}</Text>
+          <Text style={[styles.recipeSub, { color: theme.textSecondary }]}>{cuisine}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -158,7 +122,7 @@ export default function FavoritesScreen() {
         <FlatList
           data={recipes}
           renderItem={renderRecipe}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.sr_no.toString()}
           numColumns={numColumns}
           contentContainerStyle={styles.listContent}
           columnWrapperStyle={styles.columnWrapper}

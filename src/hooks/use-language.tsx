@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from './useAuth';
 
 /**
  * CookuBuddy - Global Localization System
@@ -33,6 +34,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     loading: 'Loading premium matching options...',
     no_results: 'No recipes found',
     back: 'Back',
+    favorites: 'Favorites',
   },
   ta: {
     welcome: 'வணக்கம், செஃப்!',
@@ -51,6 +53,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     loading: 'பொருந்தும் விருப்பங்களை ஏற்றுகிறது...',
     no_results: 'சமையல் குறிப்புகள் எதுவும் கிடைக்கவில்லை',
     back: 'பின்செல்',
+    favorites: 'பிடித்தவை',
   },
   hi: {
     welcome: 'नमस्ते, शेफ!',
@@ -69,6 +72,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     loading: 'मिलान विकल्प लोड हो रहे हैं...',
     no_results: 'कोई रेसिपी नहीं मिली',
     back: 'पीछे',
+    favorites: 'पसंदीदा',
   },
   te: {
     welcome: 'నమస్తే, చెఫ్!',
@@ -87,6 +91,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     loading: 'సరిపోలే ఎంపికలను లోడ్ చేస్తోంది...',
     no_results: 'వంటకాలు ఏవీ కనుగొనబడలేదు',
     back: 'వెనుకకు',
+    favorites: 'ఇష్టమైనవి',
   },
   mr: {
     welcome: 'नमस्ते, शेफ!',
@@ -105,6 +110,7 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     loading: 'पर्याय लोड होत आहेत...',
     no_results: 'कोणतीही रेसिपी सापडली नाही',
     back: 'मागे',
+    favorites: 'आवडते',
   },
   bn: {
     welcome: 'হ্যালো, শেফ!',
@@ -119,10 +125,11 @@ const translations: Record<LanguageCode, Record<string, string>> = {
     dark_mode: 'ডার্ক মোড',
     sign_out: 'সাইন আউট করুন',
     account_settings: 'অ্যাকাউন্ট সেটিংস',
-    support: 'সহায়তা',
+    support: 'সহায়তা',
     loading: 'বিকল্পগুলি লোড হচ্ছে...',
-    no_results: 'কোন রেসিপি পাওয়া যায়নি',
+    no_results: 'কোন রেসিপি পাওয়া যায়নি',
     back: 'পিছনে',
+    favorites: 'প্রিয়',
   },
 };
 
@@ -130,21 +137,28 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLang] = useState<LanguageCode>('en');
+  const { user } = useAuth();
+
+  const getStorageKey = () => {
+    return user ? `app_language_${user.id}` : 'app_language_guest';
+  };
 
   useEffect(() => {
-    // Load persisted language on startup
+    // Load persisted language when user changes or on startup
     const loadLang = async () => {
-      const savedLang = await SecureStore.getItemAsync('app_language');
+      const savedLang = await AsyncStorage.getItem(getStorageKey());
       if (savedLang) {
         setLang(savedLang as LanguageCode);
+      } else {
+        setLang('en'); // Default
       }
     };
     loadLang();
-  }, []);
+  }, [user]);
 
   const setLanguage = async (lang: LanguageCode) => {
     setLang(lang);
-    await SecureStore.setItemAsync('app_language', lang);
+    await AsyncStorage.setItem(getStorageKey(), lang);
   };
 
   const t = (key: string) => {

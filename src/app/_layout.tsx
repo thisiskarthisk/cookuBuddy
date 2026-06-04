@@ -19,15 +19,15 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <LanguageProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <LanguageProvider>
         <AppThemeProvider>
           <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <RootLayoutNav />
           </NavigationThemeProvider>
         </AppThemeProvider>
-      </AuthProvider>
-    </LanguageProvider>
+      </LanguageProvider>
+    </AuthProvider>
   );
 }
 
@@ -39,31 +39,34 @@ function RootLayoutNav() {
   useEffect(() => {
     if (loading) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
     const inAdminGroup = segments[0] === '(admin)';
+    const inAuthGroup = segments[0] === '(auth)';
+    const inTabGroup = segments[0] === '(tab)';
 
-    if (!session && !inAuthGroup) {
-      // If user logs out or has no session, redirect them to the login screen
-      router.replace('/(auth)/login');
-    } else if (session) {
+    if (session) {
       if (isAdmin) {
-        // Admin redirection
-        if (inAuthGroup || segments.length === 0 || segments[0] === '' || segments[0] === '(tab)') {
+        // Redirect Admin to admin panel if they land anywhere else
+        if (!inAdminGroup) {
           router.replace('/(admin)');
         }
       } else {
-        // Regular user redirection
-        if (inAuthGroup || segments.length === 0 || segments[0] === '' || segments[0] === '(admin)') {
+        // Redirect regular user to home if they are in auth or admin screens
+        if (inAuthGroup || inAdminGroup) {
           router.replace('/(tab)');
         }
       }
+    } else {
+      // Guest User Flow
+      // If a guest accidentally ends up in admin panel, send them home
+      if (inAdminGroup) {
+        router.replace('/(tab)');
+      }
     }
 
-    if (!loading) {
-      SplashScreen.hideAsync().catch(() => {
-        // Silently handle if splash screen is already hidden or not registered
-      });
-    }
+    // Hide Splash screen once loading is complete
+    SplashScreen.hideAsync().catch(() => {
+      // Silently handle if splash screen is already hidden or not registered
+    });
   }, [session, loading, segments, isAdmin]);
 
   if (loading) {

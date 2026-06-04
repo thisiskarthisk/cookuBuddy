@@ -1,24 +1,22 @@
-/*
- * CookuBuddy - Premium Recipes Home Feed Workspace
- * Features: Supabase Infinite Scroll, Global Localization, Dark Mode, Advanced Filters.
- * Stabilized: Search input focus persists during typing.
- */
-
 import { LanguageCode, useLanguage } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import { fetchAllRecipes, Recipe } from '@/lib/github-data';
+import { getRecipeImageUrl } from '@/lib/images';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import {
   Clock,
   Filter,
   Globe,
   Heart,
+  LogIn,
   Search,
-  Sparkles,
+  User2Icon,
   Users,
   X
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -34,134 +32,16 @@ import {
   View
 } from 'react-native';
 
-// --- Types ---
-interface Recipe {
-  id: string;
-  srno: number;
-  recipe_name: string;
-  translated_recipe_name: string;
-  cuisine: string;
-  course: string;
-  diet: string;
-  total_time_in_mins: number;
-  image_url: string;
-  video_url: string | null;
-  ingredients: string;
-  translated_ingredients: string;
-  instructions: string;
-  translated_instructions: string;
-  prep_time_in_mins: number;
-  cook_time_in_mins: number;
-  servings: string;
-  url: string;
-  created_at: string;
-}
-
 const LANGUAGES: { code: LanguageCode; label: string }[] = [
   { code: 'en', label: 'English' },
   { code: 'ta', label: 'Tamil (தமிழ்)' },
   { code: 'hi', label: 'Hindi (हिन्दी)' },
   { code: 'te', label: 'Telugu (తెలుగు)' },
-  { code: 'mr', label: 'Marathi (மराठी)' },
+  { code: 'mr', label: 'Marathi (మరాठी)' },
   { code: 'bn', label: 'Bengali (বাংলা)' },
 ];
 
-const PAGE_SIZE = 10;
-
-// --- Sub-Components (Defined outside to prevent remounting and keyboard drop) ---
-
-/**
- * Stable Header Component
- */
-const HomeHeader = React.memo(({ t, theme, onLangPress, onProfilePress, showFavs, onFavToggle }: any) => (
-  <View style={styles.headerRow}>
-    <View style={styles.headerTextSection}>
-      <View style={styles.welcomeContainer}>
-        <Text style={[styles.welcomeText, { color: theme.textSecondary }]} numberOfLines={1} adjustsFontSizeToFit>
-          {t('welcome')} 
-        </Text>
-        <Sparkles size={16} color={theme.accent} style={{ marginLeft: 4 }} />
-      </View>
-      <Text style={[styles.appTitle, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-        {t('find_recipe')}
-      </Text>
-    </View>
-    <View style={styles.headerActions}>
-      <TouchableOpacity onPress={onFavToggle} style={[styles.iconButton, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-        <Heart size={18} color={showFavs ? '#EA4335' : theme.text} fill={showFavs ? '#EA4335' : 'transparent'} />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={onLangPress} style={[styles.iconButton, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-        <Globe size={18} color={theme.text} />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={onProfilePress} style={[styles.avatarButton, { borderColor: theme.accent }]}>
-        <Image source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=150&auto=format&fit=crop' }} style={styles.avatarImage} />
-      </TouchableOpacity>
-    </View>
-  </View>
-));
-
-/**
- * Stable Search Bar Component
- */
-const SearchBar = React.memo(({ searchQuery, setSearchQuery, t, theme, onFilterPress }: any) => (
-  <View style={styles.searchContainer}>
-    <View style={[styles.searchBarWrapper, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-      <Search size={20} color={theme.textSecondary} style={styles.searchIcon} />
-      <TextInput
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder={t('search_placeholder')}
-        placeholderTextColor={theme.textSecondary}
-        style={[styles.searchInput, { color: theme.text }]}
-      />
-    </View>
-    <TouchableOpacity activeOpacity={0.8} onPress={onFilterPress} style={[styles.filterButton, { backgroundColor: theme.accent }]}>
-      <Filter size={20} color="#FFFFFF" />
-    </TouchableOpacity>
-  </View>
-));
-
-/**
- * FIXED: Moved ListHeader layout out of the main render loop into a standalone, pure layout element.
- * This guarantees everything inside it preserves state and prevents keyboard dismissals.
- */
-const ListHeaderComponent = React.memo(({ 
-  t, theme, setLangModalVisible, router, showFavoritesOnly, setShowFavoritesOnly, 
-  searchQuery, setSearchQuery, setFilterVisible, selectedCuisine, setSelectedCuisine, 
-  selectedCourse, setSelectedCourse, selectedDiet, setSelectedDiet 
-}: any) => (
-  <View style={styles.headerContainer}>
-    <HomeHeader 
-      t={t} theme={theme} 
-      onLangPress={() => setLangModalVisible(true)} 
-      onProfilePress={() => router.push('/(tab)/profile')} 
-      showFavs={showFavoritesOnly} 
-      onFavToggle={() => setShowFavoritesOnly(!showFavoritesOnly)} 
-    />
-    
-    <SearchBar 
-      searchQuery={searchQuery} 
-      setSearchQuery={setSearchQuery} 
-      t={t} theme={theme} 
-      onFilterPress={() => setFilterVisible(true)} 
-    />
-
-    {(selectedCuisine || selectedCourse || selectedDiet || showFavoritesOnly) && (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFiltersScroll}>
-        {showFavoritesOnly && (
-          <TouchableOpacity onPress={() => setShowFavoritesOnly(false)} style={[styles.activeFilterChip, { backgroundColor: '#EA4335' + '20' }]}>
-            <Text style={[styles.activeFilterText, { color: '#EA4335' }]}>Favorites</Text>
-            <X size={14} color='#EA4335' />
-          </TouchableOpacity>
-        )}
-        {selectedCuisine && <TouchableOpacity onPress={() => setSelectedCuisine(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedCuisine}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
-        {selectedCourse && <TouchableOpacity onPress={() => setSelectedCourse(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedCourse}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
-        {selectedDiet && <TouchableOpacity onPress={() => setSelectedDiet(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedDiet}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
-      </ScrollView>
-    )}
-    <View style={styles.metaSection}><Text style={[styles.sectionTitle, { color: theme.text }]}>{t('discover')}</Text></View>
-  </View>
-));
+const PAGE_SIZE = 12;
 
 // --- Main Screen ---
 
@@ -170,19 +50,28 @@ export default function RecipesHomeScreen() {
   const { t, language, setLanguage } = useLanguage();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const { user } = useAuth();
 
   // State
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
+  const [displayRecipes, setDisplayRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [filterVisible, setFilterVisible] = useState(false);
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [selectedMeal, setSelectedMeal] = useState<string | null>(null);
   const [selectedDiet, setSelectedDiet] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedSimple, setSelectedSimple] = useState<string | null>(null);
+  const [selectedTechnique, setSelectedTechnique] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+
   const [langModalVisible, setLangModalVisible] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -191,126 +80,121 @@ export default function RecipesHomeScreen() {
   const numColumns = isTablet ? 3 : 2;
   const cardWidth = (width - 32 - (numColumns - 1) * 16) / numColumns;
 
-  // Data Fetching
-  const fetchRecipes = useCallback(async (pageNum: number, isRefresh = false) => {
-    try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        pageNum === 0 ? setLoading(true) : setLoadingMore(true);
-      }
-
-      let query = supabase.from('recipes').select('*');
-
-      if (selectedCuisine) query = query.eq('cuisine', selectedCuisine);
-      if (selectedCourse) query = query.eq('course', selectedCourse);
-      if (selectedDiet) query = query.eq('diet', selectedDiet);
-      
-      if (showFavoritesOnly) {
-        if (favorites.length > 0) { query = query.in('id', favorites); }
-        else { setRecipes([]); setHasMore(false); setLoading(false); setRefreshing(false); return; }
-      }
-
-      if (searchQuery) { query = query.ilike('recipe_name', `%${searchQuery}%`); }
-
-      query = query
-        .order('created_at', { ascending: false })
-        .range(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE - 1);
-
-      const { data, error } = await query;
-      console.log('Fetch attempt (recipes):', { pageNum, dataLength: data?.length, error });
-
-      if (error) throw error;
-      if (data) {
-        if (isRefresh) { 
-          setRecipes(data); 
-        } else { 
-          setRecipes(prev => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const newItems = data.filter(item => !existingIds.has(item.id));
-            return [...prev, ...newItems];
-          }); 
-        }
-        setHasMore(data.length === PAGE_SIZE);
-      }
-    } catch (e) { 
-      console.error('Fetch error:', e); 
-    } finally { 
-      setLoading(false); 
-      setLoadingMore(false); 
-      setRefreshing(false); 
-    }
-  }, [selectedCuisine, selectedCourse, selectedDiet, searchQuery, showFavoritesOnly, favorites]);
-
+  // Load favorites
   useEffect(() => {
+    const loadFavs = async () => {
+      const key = user ? `app_favorites_${user.id}` : 'app_favorites_guest';
+      const saved = await AsyncStorage.getItem(key);
+      if (saved) {
+        try { setFavorites(JSON.parse(saved)); } catch (e) { setFavorites([]); }
+      }
+    };
+    loadFavs();
+  }, [user]);
+
+  // Initial Data Load
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      const data = await fetchAllRecipes();
+      setAllRecipes(data || []);
+      setLoading(false);
+    };
+    loadData();
+  }, []);
+
+  // Filter Logic (Client-Side)
+  const filteredRecipesList = useMemo(() => {
+    let result = [...allRecipes];
+
+    if (showFavoritesOnly) {
+      result = result.filter(r => favorites.includes(r.sr_no.toString()));
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(r => 
+        (r.title?.toLowerCase() || '').includes(q) ||
+        (r.description?.toLowerCase() || '').includes(q) ||
+        r.tags?.type?.some(t => t.toLowerCase().includes(q)) ||
+        r.tags?.cuisine?.some(c => c.toLowerCase().includes(q))
+      );
+    }
+
+    // Defensive check for r.tags using optional chaining
+    if (selectedCuisine) result = result.filter(r => r.tags?.cuisine?.includes(selectedCuisine));
+    if (selectedMeal) result = result.filter(r => r.tags?.meal?.includes(selectedMeal));
+    if (selectedDiet) result = result.filter(r => r.tags?.['special-consideration']?.includes(selectedDiet));
+    if (selectedType) result = result.filter(r => r.tags?.type?.includes(selectedType));
+    if (selectedSimple) result = result.filter(r => r.tags?.['simple-cooking']?.includes(selectedSimple));
+    if (selectedTechnique) result = result.filter(r => r.tags?.technique?.includes(selectedTechnique));
+    if (selectedSource) result = result.filter(r => r.tags?.source?.includes(selectedSource));
+
+    return result;
+  }, [allRecipes, searchQuery, selectedCuisine, selectedMeal, selectedDiet, selectedType, selectedSimple, selectedTechnique, selectedSource, showFavoritesOnly, favorites]);
+
+  // Pagination Logic
+  useEffect(() => {
+    const batch = filteredRecipesList.slice(0, PAGE_SIZE);
+    setDisplayRecipes(batch);
     setPage(0);
-    fetchRecipes(0, true);
-  }, [selectedCuisine, selectedCourse, selectedDiet, searchQuery, showFavoritesOnly, fetchRecipes]);
+    setHasMore(filteredRecipesList.length > PAGE_SIZE);
+  }, [filteredRecipesList]);
 
-  const onRefresh = () => { setPage(0); fetchRecipes(0, true); };
-  const loadMore = () => { if (!loadingMore && hasMore && !refreshing) { const next = page + 1; setPage(next); fetchRecipes(next); } };
-
-  const toggleFavorite = (id: string) => {
-    setFavorites(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    const data = await fetchAllRecipes(true);
+    setAllRecipes(data || []);
+    setRefreshing(false);
   };
 
-  // --- Render Functions ---
+  const loadMore = () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const end = (nextPage + 1) * PAGE_SIZE;
+    setDisplayRecipes(filteredRecipesList.slice(0, end));
+    setPage(nextPage);
+    setHasMore(filteredRecipesList.length > end);
+    setLoadingMore(false);
+  };
+
+  const toggleFavorite = async (sr_no: number) => {
+    const id = sr_no.toString();
+    const newFavs = favorites.includes(id) ? favorites.filter(i => i !== id) : [...favorites, id];
+    setFavorites(newFavs);
+    const key = user ? `app_favorites_${user.id}` : 'app_favorites_guest';
+    await AsyncStorage.setItem(key, JSON.stringify(newFavs));
+  };
 
   const renderRecipe = ({ item }: { item: Recipe }) => {
-    const isFav = favorites.includes(item.id);
-    const displayName = item.translated_recipe_name || item.recipe_name || 'Unnamed Recipe';
-
+    const isFav = favorites.includes(item.sr_no.toString());
+    const cuisine = item.tags?.cuisine?.[0] || 'General';
+    const isVeg = item.tags?.['special-consideration']?.includes('Vegetarian') ?? true;
+    
     return (
-      <TouchableOpacity onPress={() => router.push({ pathname: '/(tab)/recipe-details', params: { id: item.id } })} activeOpacity={0.9} style={[styles.recipeCard, { width: cardWidth, backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+      <TouchableOpacity 
+        onPress={() => router.push({ pathname: '/(tab)/recipe-details', params: { id: item.sr_no } })} 
+        activeOpacity={0.9} 
+        style={[styles.recipeCard, { width: cardWidth, backgroundColor: theme.cardBg, borderColor: theme.border }]}
+      >
         <View style={styles.cardImageWrapper}>
-          <Image source={{ uri: item.image_url }} style={styles.cardImage} />
-          {/* <TouchableOpacity onPress={() => toggleFavorite(item.srno)} activeOpacity={0.8} style={[styles.favBadgeCircle, { backgroundColor: theme.cardBg }]}>
+          <Image source={{ uri: getRecipeImageUrl(item.image_filename) }} style={styles.cardImage} resizeMode="cover" />
+          <TouchableOpacity onPress={() => toggleFavorite(item.sr_no)} style={[styles.favBadgeCircle, { backgroundColor: theme.cardBg }]}>
             <Heart size={16} color={isFav ? '#EA4335' : theme.textSecondary} fill={isFav ? '#EA4335' : 'transparent'} />
-          </TouchableOpacity> */}
-          <View style={styles.categoryTag}>
-            <Text style={styles.tagText} numberOfLines={1} adjustsFontSizeToFit>{item.course || item.cuisine}</Text>
-          </View>
+          </TouchableOpacity>
+          <View style={styles.categoryTag}><Text style={styles.tagText}>{cuisine}</Text></View>
           <View style={styles.foodTypeIndicatorContainer}>
-            <View
-              style={[
-                styles.foodTypeIndicator,
-                {
-                  borderColor:
-                    item.diet
-                      ?.toLowerCase()
-                      .includes('non')
-                      ? '#E53935'
-                      : '#22C55E',
-
-                  backgroundColor:
-                    theme.cardBg,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.foodTypeDot,
-                  {
-                    backgroundColor:
-                      item.diet
-                        ?.toLowerCase()
-                        .includes('non')
-                        ? '#E53935'
-                        : '#22C55E',
-                  },
-                ]}
-              />
+            <View style={[styles.foodTypeIndicator, { borderColor: isVeg ? '#34A853' : '#EA4335' }]}>
+              <View style={[styles.foodTypeDot, { backgroundColor: isVeg ? '#34A853' : '#EA4335' }]} />
             </View>
           </View>
         </View>
         <View style={styles.cardInfoContainer}>
-          <Text style={[styles.recipeCardTitle, { color: theme.text }]} numberOfLines={5} adjustsFontSizeToFit minimumFontScale={0.8}>{displayName}</Text>
-          <View style={styles.bottomMetaContainer}>
-            <View style={styles.metricsRow}>
-              {/* <View style={styles.metaMetricItem}>< size={12} color={theme.textSecondary} /><Text style={[styles.metricText, { color: theme.textSecondary }]}>{item.diet}</Text></View> */}
-              <View style={styles.metaMetricItem}><Users size={12} color={theme.textSecondary} /><Text style={[styles.metricText, { color: theme.textSecondary }]}>{item.servings}</Text></View>
-              <View style={styles.metaMetricItem}><Clock size={12} color={theme.textSecondary} /><Text style={[styles.metricText, { color: theme.textSecondary }]}>{item.total_time_in_mins}m</Text></View>
-            </View>
+          <Text style={[styles.recipeCardTitle, { color: theme.text }]} numberOfLines={2}>{item.title}</Text>
+          <View style={styles.metricsRow}>
+            <View style={styles.metaMetricItem}><Users size={12} color={theme.textSecondary} /><Text style={[styles.metricText, { color: theme.textSecondary }]}>{item.servings || '4'}</Text></View>
+            <View style={styles.metaMetricItem}><Clock size={12} color={theme.textSecondary} /><Text style={[styles.metricText, { color: theme.textSecondary }]}>{item.cooking_time || '30'}m</Text></View>
           </View>
         </View>
       </TouchableOpacity>
@@ -319,56 +203,95 @@ export default function RecipesHomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {loading && page === 0 ? (
-        <View style={styles.centerLoader}><ActivityIndicator size="large" color={theme.accent} /><Text style={[styles.loadingText, { color: theme.textSecondary }]}>{t('loading')}</Text></View>
+      {/* FIXED NAVBAR */}
+      <View style={[styles.navbar, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={[styles.welcomeText, { color: theme.textSecondary }]}>{t('welcome')}</Text>
+            <Text style={[styles.appTitle, { color: theme.text }]}>{t('find_recipe')}</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={() => setShowFavoritesOnly(!showFavoritesOnly)} style={[styles.iconButton, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+              <Heart size={18} color={showFavoritesOnly ? '#EA4335' : theme.text} fill={showFavoritesOnly ? '#EA4335' : 'transparent'} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setLangModalVisible(true)} style={[styles.iconButton, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+              <Globe size={18} color={theme.text} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => router.push(user ? '/(tab)/profile' : '/(auth)/login')} 
+              style={[styles.iconButton, { backgroundColor: theme.cardBg, borderColor: theme.border }]}
+            >
+              {user ? <User2Icon size={18} color={theme.text} /> : <LogIn size={18} color={theme.text} />}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchBarWrapper, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
+            <Search size={20} color={theme.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('search_placeholder')}
+              placeholderTextColor={theme.textSecondary}
+              style={[styles.searchInput, { color: theme.text }]}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearIcon}>
+                <X size={18} color={theme.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity onPress={() => setFilterVisible(true)} style={[styles.filterButton, { backgroundColor: theme.accent }]}>
+            <Filter size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        {(selectedCuisine || selectedMeal || selectedDiet || selectedType || selectedSimple || selectedTechnique || selectedSource || showFavoritesOnly) && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.activeFiltersScroll}>
+            {showFavoritesOnly && <TouchableOpacity onPress={() => setShowFavoritesOnly(false)} style={[styles.activeFilterChip, { backgroundColor: '#EA433520' }]}><Text style={[styles.activeFilterText, { color: '#EA4335' }]}>{t('favorites')}</Text><X size={14} color='#EA4335' /></TouchableOpacity>}
+            {selectedCuisine && <TouchableOpacity onPress={() => setSelectedCuisine(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedCuisine}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
+            {selectedMeal && <TouchableOpacity onPress={() => setSelectedMeal(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedMeal}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
+            {selectedDiet && <TouchableOpacity onPress={() => setSelectedDiet(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedDiet}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
+            {selectedType && <TouchableOpacity onPress={() => setSelectedType(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedType}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
+            {selectedSimple && <TouchableOpacity onPress={() => setSelectedSimple(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedSimple}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
+            {selectedTechnique && <TouchableOpacity onPress={() => setSelectedTechnique(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedTechnique}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
+            {selectedSource && <TouchableOpacity onPress={() => setSelectedSource(null)} style={[styles.activeFilterChip, { backgroundColor: theme.accent + '20' }]}><Text style={[styles.activeFilterText, { color: theme.accent }]}>{selectedSource}</Text><X size={14} color={theme.accent} /></TouchableOpacity>}
+          </ScrollView>
+        )}
+      </View>
+
+      {loading ? (
+        <View style={styles.centerLoader}><ActivityIndicator size="large" color={theme.accent} /></View>
       ) : (
         <FlatList
-          data={recipes}
+          data={displayRecipes}
           renderItem={renderRecipe}
-          keyExtractor={(item, index) => item?.srno?.toString() || index.toString()}
+          keyExtractor={(item) => item.sr_no.toString()}
           numColumns={numColumns}
           columnWrapperStyle={styles.gridContainer}
-          ListHeaderComponent={
-            <ListHeaderComponent
-              t={t}
-              theme={theme}
-              setLangModalVisible={setLangModalVisible}
-              router={router}
-              showFavoritesOnly={showFavoritesOnly}
-              setShowFavoritesOnly={setShowFavoritesOnly}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              setFilterVisible={setFilterVisible}
-              selectedCuisine={selectedCuisine}
-              setSelectedCuisine={setSelectedCuisine}
-              selectedCourse={selectedCourse}
-              setSelectedCourse={setSelectedCourse}
-              selectedDiet={selectedDiet}
-              setSelectedDiet={setSelectedDiet}
-            />
-          }
-          ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color={theme.accent} /></View> : <View style={{ height: 20 }} />}
-          contentContainerStyle={styles.scrollPadding}
+          contentContainerStyle={styles.listContent}
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}
-          showsVerticalScrollIndicator={false}
           ListEmptyComponent={<View style={styles.emptyContainer}><Text style={[styles.emptyText, { color: theme.textSecondary }]}>{t('no_results')}</Text></View>}
+          ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={theme.accent} style={{ margin: 20 }} /> : null}
         />
       )}
 
-      {/* Advanced Filter Modal */}
+      {/* FILTER MODAL */}
       <Modal visible={filterVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.filterModalContent, { backgroundColor: theme.cardBg }]}>
-            <View style={styles.filterHeader}><Text style={[styles.filterTitle, { color: theme.text }]}>Advanced Filters</Text><TouchableOpacity onPress={() => setFilterVisible(false)}><X size={24} color={theme.text} /></TouchableOpacity></View>
+            <View style={styles.filterHeader}><Text style={[styles.filterTitle, { color: theme.text }]}>Filter Recipes</Text><TouchableOpacity onPress={() => setFilterVisible(false)}><X size={24} color={theme.text} /></TouchableOpacity></View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={[styles.filterLabel, { color: theme.textSecondary }]}>Cuisine</Text>
-              <View style={styles.filterOptions}>{['Indian', 'South Indian Recipes', 'North Indian Recipes', 'Mediterranean'].map(c => (<TouchableOpacity key={c} onPress={() => setSelectedCuisine(selectedCuisine === c ? null : c)} style={[styles.filterChip, selectedCuisine === c && { backgroundColor: theme.accent, borderColor: theme.accent }]}><Text style={[styles.filterChipText, { color: theme.textSecondary }, selectedCuisine === c && { color: '#FFFFFF' }]}>{c}</Text></TouchableOpacity>))}</View>
-              <Text style={[styles.filterLabel, { color: theme.textSecondary }]}>Course</Text>
-              <View style={styles.filterOptions}>{['Side Dish', 'Main Course', 'Appetizer', 'Dessert'].map(c => (<TouchableOpacity key={c} onPress={() => setSelectedCourse(selectedCourse === c ? null : c)} style={[styles.filterChip, selectedCourse === c && { backgroundColor: theme.accent, borderColor: theme.accent }]}><Text style={[styles.filterChipText, { color: theme.textSecondary }, selectedCourse === c && { color: '#FFFFFF' }]}>{c}</Text></TouchableOpacity>))}</View>
-              <Text style={[styles.filterLabel, { color: theme.textSecondary }]}>Diet</Text>
-              <View style={styles.filterOptions}>{['Diabetic Friendly', 'Vegetarian', 'Gluten Free', 'High Protein Vegetarian'].map(d => (<TouchableOpacity key={d} onPress={() => setSelectedDiet(selectedDiet === d ? null : d)} style={[styles.filterChip, selectedDiet === d && { backgroundColor: theme.accent, borderColor: theme.accent }]}><Text style={[styles.filterChipText, { color: theme.textSecondary }, selectedDiet === d && { color: '#FFFFFF' }]}>{d}</Text></TouchableOpacity>))}</View>
+              <FilterSection label="Cuisine" items={['Italian', 'European', 'American', 'Asian', 'Indian', 'French', 'Mexican']} selected={selectedCuisine} onSelect={setSelectedCuisine} theme={theme} />
+              <FilterSection label="Meal Type" items={['Dinner', 'Lunch', 'Side', 'Dessert', 'Breakfast', 'Main Course', 'Starter']} selected={selectedMeal} onSelect={setSelectedMeal} theme={theme} />
+              <FilterSection label="Diet" items={['Vegetarian', 'Vegan', 'Gluten-Free', 'Nut Free', 'Dairy-Free', 'Healthy']} selected={selectedDiet} onSelect={setSelectedDiet} theme={theme} />
+              <FilterSection label="Type" items={['Pasta', 'Risotto', 'Salad', 'Soup', 'Bread', 'Cake', 'Cookie']} selected={selectedType} onSelect={setSelectedType} theme={theme} />
+              <FilterSection label="Simple Cooking" items={['30 Minutes or Less', 'Weeknight Meals', 'Quick & Easy']} selected={selectedSimple} onSelect={setSelectedSimple} theme={theme} />
+              <FilterSection label="Technique" items={['Saute', 'Bake', 'Grill', 'Roast', 'Fry', 'Simmer']} selected={selectedTechnique} onSelect={setSelectedTechnique} theme={theme} />
+              <FilterSection label="Source" items={['Gourmet', 'Bon Appétit', 'Epicurious', 'Self']} selected={selectedSource} onSelect={setSelectedSource} theme={theme} />
             </ScrollView>
             <TouchableOpacity onPress={() => setFilterVisible(false)} style={[styles.applyButton, { backgroundColor: theme.accent }]}><Text style={styles.applyButtonText}>Apply Filters</Text></TouchableOpacity>
           </View>
@@ -391,88 +314,64 @@ export default function RecipesHomeScreen() {
   );
 }
 
+const FilterSection = ({ label, items, selected, onSelect, theme }: any) => (
+  <View style={styles.filterSection}>
+    <Text style={[styles.filterLabel, { color: theme.textSecondary }]}>{label}</Text>
+    <View style={styles.filterOptions}>{items.map((item: string) => (<TouchableOpacity key={item} onPress={() => onSelect(selected === item ? null : item)} style={[styles.filterChip, selected === item && { backgroundColor: theme.accent, borderColor: theme.accent }]}><Text style={[styles.filterChipText, { color: theme.textSecondary }, selected === item && { color: '#FFFFFF' }]}>{item}</Text></TouchableOpacity>))}</View>
+  </View>
+);
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollPadding: { paddingHorizontal: 16, paddingBottom: 40 },
-  headerContainer: { paddingTop: 60, marginBottom: 10 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  headerTextSection: { flex: 1, marginRight: 10 },
-  welcomeContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  welcomeText: { fontSize: 15, fontWeight: '500' },
-  appTitle: { fontSize: 24, fontWeight: '800' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  navbar: { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  welcomeText: { fontSize: 14, fontWeight: '600' },
+  appTitle: { fontSize: 22, fontWeight: '800' },
+  headerActions: { flexDirection: 'row', gap: 10 },
   iconButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  avatarButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, overflow: 'hidden' },
-  avatarImage: { width: '100%', height: '100%' },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  searchBarWrapper: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 48, borderRadius: 24, paddingHorizontal: 16, borderWidth: 1 },
+  searchContainer: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  searchBarWrapper: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 46, borderRadius: 23, paddingHorizontal: 16, borderWidth: 1 },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, height: '100%', fontSize: 15 },
-  filterButton: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
-  activeFiltersScroll: { gap: 10, paddingBottom: 16 },
-  activeFilterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  activeFilterText: { fontSize: 13, fontWeight: '600' },
-  metaSection: { marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '700' },
-  gridContainer: { justifyContent: 'space-between', marginBottom: 16 },
-  recipeCard: { borderRadius: 24, overflow: 'hidden', borderWidth: 1, elevation: 2 },
-  cardImageWrapper: { width: '100%', height: 140, position: 'relative' },
+  clearIcon: { padding: 4 },
+  filterButton: { width: 46, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center' },
+  activeFiltersScroll: { flexDirection: 'row', marginTop: 8 },
+  activeFilterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 8, height: 32 },
+  activeFilterText: { fontSize: 12, fontWeight: '700' },
+  listContent: { padding: 16, paddingBottom: 100 },
+  gridContainer: { justifyContent: 'space-between' },
+  recipeCard: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, marginBottom: 16, elevation: 2 },
+  cardImageWrapper: { width: '100%', height: 130 },
   cardImage: { width: '100%', height: '100%' },
-  favBadgeCircle: { position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  categoryTag: { position: 'absolute', bottom: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  tagText: { color: '#FFFFFF', fontSize: 11, fontWeight: '600' },
-  cardInfoContainer: { padding: 14 , flex:1},
-  recipeCardTitle: { fontSize: 12, fontWeight: '700', includeFontPadding: false },
-  bottomMetaContainer: {marginTop: 'auto'},
-  metricsRow: { flexDirection: 'row', marginTop: 12, gap: 15 },
-  metaMetricItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  metricText: { fontSize: 12, fontWeight: '500' },
+  favBadgeCircle: { position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  categoryTag: { position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  tagText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
+  foodTypeIndicatorContainer: { position: 'absolute', top: 10, left: 10, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  foodTypeIndicator: { width: 12, height: 12, borderWidth: 1, borderRadius: 2, justifyContent: 'center', alignItems: 'center' },
+  foodTypeDot: { width: 4, height: 4, borderRadius: 2 },
+  cardInfoContainer: { padding: 12 },
+  recipeCardTitle: { fontSize: 13, fontWeight: '700', marginBottom: 6 },
+  metricsRow: { flexDirection: 'row', gap: 10 },
+  metaMetricItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metricText: { fontSize: 11, fontWeight: '500' },
   centerLoader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 15, fontSize: 14, fontWeight: '600' },
-  footerLoader: { paddingVertical: 20, alignItems: 'center' },
-  emptyContainer: { paddingTop: 60, alignItems: 'center' },
-  emptyText: { fontSize: 16, fontWeight: '500' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  filterModalContent: { width: '100%', maxHeight: '80%', borderRadius: 32, padding: 24 },
+  emptyContainer: { flex: 1, alignItems: 'center', marginTop: 100 },
+  emptyText: { fontSize: 16, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  filterModalContent: { height: '85%', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24 },
   filterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  filterTitle: { fontSize: 22, fontWeight: '800' },
-  filterLabel: { fontSize: 15, fontWeight: '700', marginTop: 16, marginBottom: 12 },
-  filterOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
-  filterChipText: { fontSize: 13, fontWeight: '600' },
-  applyButton: { height: 54, borderRadius: 27, justifyContent: 'center', alignItems: 'center', marginTop: 30 },
-  applyButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  langModalContent: { width: '100%', maxWidth: 320, borderRadius: 28, padding: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 24, textAlign: 'center' },
-  langItem: { paddingVertical: 15, paddingHorizontal: 20, borderRadius: 12, marginBottom: 8 },
-  langText: { fontSize: 16, fontWeight: '500' },
-  closeBtn: { marginTop: 12, paddingVertical: 10, alignItems: 'center' },
-  closeBtnText: { fontSize: 15, fontWeight: '700' },
-
-  foodTypeIndicator: {
-    width: 18,
-
-    height: 18,
-
-    borderWidth: 1.5,
-
-    borderRadius: 4,
-
-    alignItems: 'center',
-
-    justifyContent: 'center',
-  },
-
-  foodTypeDot: {
-    width: 8,
-
-    height: 8,
-
-    borderRadius: 4,
-  },
-
-  foodTypeIndicatorContainer: {
-    position: 'absolute', top: 1, right: 55, width: 30, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' ,marginRight: 100
-  },
-
+  filterTitle: { fontSize: 20, fontWeight: '800' },
+  filterSection: { marginBottom: 20 },
+  filterLabel: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
+  filterOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterChipText: { fontSize: 12, fontWeight: '600' },
+  applyButton: { height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  applyButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  langModalContent: { width: '100%', maxWidth: 320, alignSelf: 'center', borderRadius: 24, padding: 24, top: '30%' },
+  modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 20, textAlign: 'center' },
+  langItem: { paddingVertical: 14, borderRadius: 12, marginBottom: 8, paddingHorizontal: 16 },
+  langText: { fontSize: 15, fontWeight: '600' },
+  closeBtn: { marginTop: 10, alignItems: 'center' },
+  closeBtnText: { fontSize: 14, fontWeight: '700' },
 });

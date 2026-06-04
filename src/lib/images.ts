@@ -3,11 +3,13 @@
  */
 
 export const getRecipeImageUrl = (filenameOrUrl: string | null) => {
-  const FALLBACK = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=600&auto=format&fit=crop';
+  // Premium food placeholder from Unsplash
+  const FALLBACK = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=800&auto=format&fit=crop';
   
   if (!filenameOrUrl) return FALLBACK;
   
   const input = filenameOrUrl.trim();
+  if (input === '' || input.toLowerCase() === 'null') return FALLBACK;
   
   // If it's already a raw github URL, return it
   if (input.includes('raw.githubusercontent.com')) return input;
@@ -22,6 +24,8 @@ export const getRecipeImageUrl = (filenameOrUrl: string | null) => {
   
   // If it's just a filename, construct the URL
   const cleanFilename = input.split('/').pop() || '';
+  if (!cleanFilename) return FALLBACK;
+  
   // Ensure we have an extension if missing
   const finalFilename = cleanFilename.includes('.') ? cleanFilename : `${cleanFilename}.jpg`;
   
