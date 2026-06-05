@@ -4,11 +4,13 @@
  */
 
 import { useTheme } from '@/hooks/use-theme';
+import { useLanguage } from '@/hooks/use-language';
 import { Tabs } from 'expo-router';
-import { ChefHat, ShoppingCart, User, Notebook } from 'lucide-react-native';
+import { ChefHat, ShoppingCart, User, Notebook, Heart } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { colors: theme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <Tabs
@@ -33,15 +35,23 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Recipes',
+          title: t('recipes'),
           tabBarIcon: ({ size, color }) => <ChefHat size={size} color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: t('favorites'),
+          tabBarIcon: ({ size, color }) => <Heart size={size} color={color} />,
         }}
       />
       
       <Tabs.Screen
         name="shopping-list"
         options={{
-          title: 'Cooking List',
+          title: t('cooking_list'),
           tabBarIcon: ({ size, color }) => <Notebook size={size} color={color} />,
         }}
       />
@@ -49,13 +59,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: t('profile'),
           tabBarIcon: ({ size, color }) => <User size={size} color={color} />,
         }}
       />
 
       {/* Hide screens that are not tabs */}
-      <Tabs.Screen name="favorites" options={{ href : null}} />
       <Tabs.Screen name="recipe-details" options={{ href : null}} />
     </Tabs>
   );

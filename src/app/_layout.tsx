@@ -3,9 +3,9 @@
  * Handles global session initializations and coordinate route views.
  */
 
-import { AuthProvider, useAuth } from '@/hooks/useAuth';
-import { ThemeProvider as AppThemeProvider } from '@/hooks/use-theme';
 import { LanguageProvider } from '@/hooks/use-language';
+import { ThemeProvider as AppThemeProvider } from '@/hooks/use-theme';
+import { AuthProvider, useAuth } from '@/hooks/useAuth';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
