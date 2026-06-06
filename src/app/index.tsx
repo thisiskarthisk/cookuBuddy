@@ -6,8 +6,8 @@ import { useEffect } from 'react'
 export default function Index() {
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.replace('/(auth)/login')
-    }, 3000)
+      router.replace('/(tab)')
+    }, 1200) // Balanced delay for professional entry
 
     return () => clearTimeout(timer)
   }, [])

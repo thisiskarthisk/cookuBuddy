@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Text, TextProps } from 'react-native';
 import { useLanguage, LANGUAGE_NAMES } from '@/hooks/use-language';
-import { translateText } from '@/lib/puter';
+import { translateText } from '@/lib/google-translate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface TranslatedTextProps extends TextProps {

@@ -22,6 +22,7 @@ interface LanguageContextType {
   language: LanguageCode;
   setLanguage: (lang: LanguageCode) => Promise<void>;
   t: (key: string) => string;
+  isLanguageLoading: boolean;
 }
 
 // UI Translations for the application
@@ -314,6 +315,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLang] = useState<LanguageCode>('en');
+  const [isLanguageLoading, setIsLanguageLoading] = useState(false);
   const { user } = useAuth();
 
   const getStorageKey = () => {
@@ -334,8 +336,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const setLanguage = async (lang: LanguageCode) => {
+    setIsLanguageLoading(true);
     setLang(lang);
     await AsyncStorage.setItem(getStorageKey(), lang);
+    setTimeout(() => {
+      setIsLanguageLoading(false);
+    }, 800);
   };
 
   const t = (key: string) => {
@@ -343,7 +349,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, isLanguageLoading }}>
       {children}
     </LanguageContext.Provider>
   );

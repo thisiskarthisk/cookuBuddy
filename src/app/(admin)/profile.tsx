@@ -1,184 +1,18 @@
-// /**
-//  * Admin Profile Screen
-//  * Admin personal settings and account management.
-//  */
-
-// import { useTheme } from '@/hooks/use-theme';
-// import { useLanguage } from '@/hooks/use-language';
-// import { useAuth } from '@/hooks/useAuth';
-// import { 
-//   ChevronRight, 
-//   LogOut, 
-//   Moon, 
-//   ShieldCheck, 
-//   User, 
-//   Settings,
-//   Bell,
-//   Lock
-// } from 'lucide-react-native';
-// import React, { useState } from 'react';
-// import {
-//   Image,
-//   Modal,
-//   ScrollView,
-//   StyleSheet,
-//   Switch,
-//   Text,
-//   TouchableOpacity,
-//   View,
-// } from 'react-native';
-
-// export default function AdminProfile() {
-//   const { user, signOut } = useAuth();
-//   const { colors, isDark, toggleTheme } = useTheme();
-//   const { t, language } = useLanguage();
-//   const [isModalVisible, setIsModalVisible] = useState(false);
-
-//   async function handleConfirmLogout() {
-//     setIsModalVisible(false);
-//     try { await signOut(); } catch (e) { console.error(e); }
-//   }
-
-//   const SettingRow = ({ icon: Icon, title, rightElement, onPress }: any) => (
-//     <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={[styles.settingRow, { borderBottomColor: colors.border }]}>
-//       <View style={styles.settingLeft}>
-//         <View style={[styles.settingIconWrapper, { backgroundColor: isDark ? '#2D3748' : '#F1F5F9' }]}>
-//           <Icon size={20} color={colors.textSecondary} />
-//         </View>
-//         <Text style={[styles.settingTitle, { color: colors.text }]}>{title}</Text>
-//       </View>
-//       {rightElement ? rightElement : <ChevronRight size={18} color="#A0A0A0" />}
-//     </TouchableOpacity>
-//   );
-
-//   return (
-//     <View style={[styles.container, { backgroundColor: colors.background }]}>
-//       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollPadding}>
-        
-//         {/* Profile Card Header */}
-//         <View style={[styles.profileHeaderCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-//           <View style={styles.adminBadge}>
-//             <ShieldCheck size={14} color="#FFFFFF" />
-//             <Text style={styles.adminBadgeText}>ADMINISTRATOR</Text>
-//           </View>
-//           <Image
-//             source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }}
-//             style={[styles.avatarImage, { borderColor: colors.accent }]}
-//           />
-//           <Text style={[styles.profileName, { color: colors.text }]}>Admin Master</Text>
-//           <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{user?.email || 'admin@cookubuddy.com'}</Text>
-//         </View>
-
-//         {/* Admin Tools Section */}
-//         <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>Admin Controls</Text>
-//         <View style={[styles.settingsGroupCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-//           <SettingRow icon={Settings} title="Global System Settings" />
-//           <SettingRow icon={Bell} title="System Notifications" />
-//           <SettingRow icon={Lock} title="Security Audit Logs" />
-//         </View>
-
-//         {/* Account Settings Section */}
-//         <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>{t('account_settings')}</Text>
-//         <View style={[styles.settingsGroupCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
-//           <SettingRow icon={User} title="Edit Profile Details" />
-//           <SettingRow 
-//             icon={Moon} 
-//             title={t('dark_mode')} 
-//             rightElement={
-//               <Switch
-//                 value={isDark}
-//                 onValueChange={toggleTheme}
-//                 trackColor={{ false: '#CBD5E1', true: colors.accent }}
-//                 thumbColor="#FFFFFF"
-//               />
-//             }
-//           />
-//         </View>
-
-//         {/* Logout Action Button */}
-//         <TouchableOpacity activeOpacity={0.8} onPress={() => setIsModalVisible(true)} style={styles.logoutButton}>
-//           <LogOut size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-//           <Text style={styles.logoutButtonText}>{t('sign_out')}</Text>
-//         </TouchableOpacity>
-
-//       </ScrollView>
-
-//       {/* Logout Confirmation Modal */}
-//       <Modal visible={isModalVisible} transparent={true} animationType="fade">
-//         <View style={styles.modalOverlay}>
-//           <View style={[styles.modalContent, { backgroundColor: colors.cardBg }]}>
-//             <View style={styles.modalIconCircle}><LogOut size={28} color="#EA4335" /></View>
-//             <Text style={[styles.modalTitle, { color: colors.text }]}>Confirm Logout</Text>
-//             <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>Are you sure you want to log out of the Admin panel?</Text>
-//             <View style={styles.modalActionRow}>
-//               <TouchableOpacity onPress={() => setIsModalVisible(false)} style={[styles.modalBtn, styles.cancelBtn]}><Text style={styles.cancelBtnText}>Cancel</Text></TouchableOpacity>
-//               <TouchableOpacity onPress={handleConfirmLogout} style={[styles.modalBtn, styles.confirmBtn]}><Text style={styles.confirmBtnText}>Log Out</Text></TouchableOpacity>
-//             </View>
-//           </View>
-//         </View>
-//       </Modal>
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1 },
-//   scrollPadding: { paddingTop: 60, paddingHorizontal: 16, paddingBottom: 40 },
-//   profileHeaderCard: { alignItems: 'center', borderRadius: 24, paddingVertical: 28, borderWidth: 1, marginBottom: 20 },
-//   adminBadge: { 
-//     flexDirection: 'row', 
-//     alignItems: 'center', 
-//     backgroundColor: '#EA4335', 
-//     paddingHorizontal: 12, 
-//     paddingVertical: 4, 
-//     borderRadius: 12, 
-//     gap: 6,
-//     position: 'absolute',
-//     top: -12,
-//   },
-//   adminBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-//   avatarImage: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, marginBottom: 14 },
-//   profileName: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
-//   profileEmail: { fontSize: 14, fontWeight: '500' },
-//   sectionHeading: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, paddingHorizontal: 4 },
-//   settingsGroupCard: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 16, marginBottom: 24 },
-//   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
-//   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-//   settingIconWrapper: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-//   settingTitle: { fontSize: 15, fontWeight: '500' },
-//   logoutButton: { flexDirection: 'row', height: 50, backgroundColor: '#EA4335', borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: 12 },
-//   logoutButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
-//   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-//   modalContent: { borderRadius: 28, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center' },
-//   modalIconCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-//   modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
-//   modalMessage: { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-//   modalActionRow: { flexDirection: 'row', gap: 12, width: '100%' },
-//   modalBtn: { flex: 1, height: 46, borderRadius: 23, justifyContent: 'center', alignItems: 'center' },
-//   cancelBtn: { backgroundColor: '#E2E8F0' },
-//   cancelBtnText: { color: '#475569', fontSize: 15, fontWeight: '600' },
-//   confirmBtn: { backgroundColor: '#EA4335' },
-//   confirmBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
-// });
-
-
-
-/**
- * Admin Profile Screen - CookuBuddy design system
- */
-
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/use-theme';
+import { Themes, ThemeName } from '@/constants/theme';
 import {
   Bell,
   ChevronRight,
   Lock,
   LogOut,
-  Moon,
+  Palette,
   Settings,
   Shield,
   ShieldCheck,
   User,
+  Check
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
@@ -186,157 +20,178 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
+  Alert
 } from 'react-native';
-
-// ─── Design Tokens ────────────────────────────────────────────────
-const C = {
-  cream:      '#FDF6ED',
-  parchment:  '#F5EBD8',
-  terra:      '#C1440E',
-  terraLight: '#E8622A',
-  saffron:    '#E8A020',
-  sage:       '#6B7C5C',
-  ink:        '#2C1A0E',
-  inkLight:   '#7A5C46',
-  white:      '#FFFFFF',
-  border:     '#E2CEB0',
-  cardBg:     '#FFFAF4',
-  errorRed:   '#D94040',
-};
+import { Card } from '@/components/ui/card';
 
 export default function AdminProfile() {
   const { user, signOut } = useAuth();
-  const { t }             = useLanguage();
+  const { t } = useLanguage();
+  const { colors: theme, themeName, setTheme } = useTheme();
 
-  const [darkMode, setDarkMode]       = useState(false);
   const [logoutModal, setLogoutModal] = useState(false);
+  const [isThemeModalVisible, setIsThemeModalVisible] = useState(false);
 
   async function handleConfirmLogout() {
     setLogoutModal(false);
-    try { await signOut(); } catch (e) { console.error(e); }
+    try { 
+      await signOut(); 
+      router.replace('/(auth)/login');
+    } catch (e) { 
+      console.error(e); 
+    }
   }
 
-  const SettingRow = ({ icon: Icon, label, right, iconBg }: any) => (
-    <View style={styles.settingRow}>
+  const SettingRow = ({ icon: Icon, label, right, onPress, subtitle }: any) => (
+    <TouchableOpacity 
+      activeOpacity={0.7} 
+      onPress={onPress} 
+      style={[styles.settingRow, { borderBottomColor: theme.border + '80' }]}
+    >
       <View style={styles.settingLeft}>
-        <View style={[styles.iconBox, { backgroundColor: iconBg || C.parchment }]}>
-          <Icon size={18} color={C.terra} />
+        <View style={[styles.iconBox, { backgroundColor: theme.backgroundElement }]}>
+          <Icon size={18} color={theme.accent} />
         </View>
-        <Text style={styles.settingLabel}>{label}</Text>
+        <View>
+          <Text style={[styles.settingLabel, { color: theme.text }]}>{label}</Text>
+          {subtitle && <Text style={[styles.settingSubtitle, { color: theme.textSecondary }]}>{subtitle}</Text>}
+        </View>
       </View>
-      {right ?? <ChevronRight size={16} color={C.inkLight} />}
-    </View>
+      {right ?? <ChevronRight size={16} color={theme.textSecondary} />}
+    </TouchableOpacity>
   );
 
   const stats = [
-    { label: 'Users',   val: '—' },
+    { label: 'Users', val: '—' },
     { label: 'Recipes', val: '—' },
     { label: 'Reports', val: '3' },
   ];
 
   return (
-    <View style={styles.root}>
-      <View style={styles.blobTop} />
-      <View style={styles.blobBottom} />
+    <View style={[styles.root, { backgroundColor: theme.background }]}>
+      <View style={[styles.blobTop, { backgroundColor: theme.accentSecondary + '10' }]} />
+      <View style={[styles.blobBottom, { backgroundColor: theme.accent + '10' }]} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        {/* Avatar card */}
-        <View style={styles.avatarCard}>
-          {/* Admin badge ribbon */}
-          <View style={styles.adminRibbon}>
-            <Shield size={11} color={C.white} />
+        <Card style={styles.avatarCard}>
+          <View style={[styles.adminRibbon, { backgroundColor: theme.accent }]}>
+            <Shield size={11} color="#FFFFFF" />
             <Text style={styles.adminRibbonText}>ADMINISTRATOR</Text>
           </View>
 
-          <View style={styles.avatarRing}>
+          <View style={[styles.avatarRing, { borderColor: theme.accent }]}>
             <Image
               source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=150&auto=format&fit=crop' }}
               style={styles.avatar}
             />
           </View>
-          <Text style={styles.profileName}>Admin Master</Text>
-          <Text style={styles.profileEmail}>{user?.email || 'admin@cookubuddy.com'}</Text>
+          <Text style={[styles.profileName, { color: theme.text }]}>Admin Master</Text>
+          <Text style={[styles.profileEmail, { color: theme.textSecondary }]}>{user?.email || 'admin@cookubuddy.com'}</Text>
 
-          <View style={styles.chefBadge}>
-            <ShieldCheck size={12} color={C.terra} />
-            <Text style={styles.chefBadgeText}>Super Admin</Text>
+          <View style={[styles.chefBadge, { backgroundColor: theme.accent + '15', borderColor: theme.accent + '30' }]}>
+            <ShieldCheck size={12} color={theme.accent} />
+            <Text style={[styles.chefBadgeText, { color: theme.accent }]}>Super Admin</Text>
           </View>
-        </View>
+        </Card>
 
-        {/* Quick stats */}
         <View style={styles.statsRow}>
           {stats.map((s, i) => (
-            <View key={i} style={styles.statBox}>
-              <Text style={styles.statVal}>{s.val}</Text>
-              <Text style={styles.statLbl}>{s.label}</Text>
-            </View>
+            <Card key={i} style={styles.statBox}>
+              <Text style={[styles.statVal, { color: theme.text }]}>{s.val}</Text>
+              <Text style={[styles.statLbl, { color: theme.textSecondary }]}>{s.label}</Text>
+            </Card>
           ))}
         </View>
 
-        {/* Admin controls */}
-        <Text style={styles.sectionLabel}>ADMIN CONTROLS</Text>
-        <View style={styles.settingsCard}>
+        <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ADMIN CONTROLS</Text>
+        <Card style={styles.settingsCard}>
           <SettingRow icon={Settings} label="Global System Settings" />
-          <SettingRow icon={Bell}     label="System Notifications"   />
-          <SettingRow icon={Lock}     label="Security Audit Logs"    />
-        </View>
+          <SettingRow icon={Bell} label="System Notifications" />
+          <SettingRow icon={Lock} label="Security Audit Logs" />
+        </Card>
 
-        {/* Account */}
-        <Text style={styles.sectionLabel}>ACCOUNT</Text>
-        <View style={styles.settingsCard}>
-          <SettingRow icon={User} label="Edit Profile Details" />
-          <SettingRow
-            icon={Moon}
-            label="Dark Mode"
-            right={
-              <Switch
-                value={darkMode}
-                onValueChange={setDarkMode}
-                trackColor={{ false: C.border, true: C.terra }}
-                thumbColor={C.white}
-              />
-            }
+        <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ACCOUNT</Text>
+        <Card style={styles.settingsCard}>
+          <SettingRow 
+            icon={Palette} 
+            label="App Theme" 
+            subtitle={themeName.charAt(0).toUpperCase() + themeName.slice(1)}
+            onPress={() => setIsThemeModalVisible(true)} 
           />
-        </View>
+          <SettingRow icon={User} label="Edit Profile Details" />
+        </Card>
 
-        {/* Logout */}
         <TouchableOpacity
           onPress={() => setLogoutModal(true)}
           activeOpacity={0.85}
-          style={styles.logoutBtn}
+          style={[styles.logoutBtn, { backgroundColor: theme.error }]}
         >
-          <LogOut size={18} color={C.white} />
+          <LogOut size={18} color="#FFFFFF" />
           <Text style={styles.logoutText}>{t('sign_out')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>CookuBuddy Admin v1.0 · Made with 🍅</Text>
+        <Text style={[styles.versionText, { color: theme.textSecondary }]}>CookuBuddy Admin v1.0 • Made with ❤️</Text>
       </ScrollView>
+
+      {/* Theme Modal */}
+      <Modal visible={isThemeModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <Card style={[styles.themeModalCard, { maxHeight: '80%' }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Choose Theme</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.themeGrid}>
+              {(Object.keys(Themes) as ThemeName[]).map((name) => (
+                <TouchableOpacity
+                  key={name}
+                  onPress={() => {
+                    setTheme(name);
+                    setIsThemeModalVisible(false);
+                  }}
+                  style={[
+                    styles.themeOption,
+                    { backgroundColor: Themes[name].background, borderColor: Themes[name].border },
+                    themeName === name && { borderColor: Themes[name].accent, borderWidth: 2 }
+                  ]}
+                >
+                  <View style={[styles.themeColorCircle, { backgroundColor: Themes[name].accent }]}>
+                    {themeName === name && <Check size={12} color="#FFFFFF" />}
+                  </View>
+                  <Text style={[styles.themeText, { color: Themes[name].text }]}>
+                    {name.charAt(0).toUpperCase() + name.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setIsThemeModalVisible(false)} style={styles.modalCloseBtn}>
+              <Text style={{ color: theme.accent, fontWeight: '700' }}>Close</Text>
+            </TouchableOpacity>
+          </Card>
+        </View>
+      </Modal>
 
       {/* Logout modal */}
       <Modal visible={logoutModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalIconCircle}>
-              <LogOut size={26} color={C.errorRed} />
+          <Card style={styles.modalCard}>
+            <View style={[styles.modalIconCircle, { backgroundColor: theme.error + '15' }]}>
+              <LogOut size={26} color={theme.error} />
             </View>
-            <Text style={styles.modalTitle}>Log Out?</Text>
-            <Text style={styles.modalBody}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Log Out?</Text>
+            <Text style={[styles.modalBody, { color: theme.textSecondary }]}>
               Are you sure you want to sign out of the Admin panel?
             </Text>
             <View style={styles.modalBtns}>
-              <TouchableOpacity onPress={() => setLogoutModal(false)} style={styles.modalCancelBtn}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
+              <TouchableOpacity onPress={() => setLogoutModal(false)} style={[styles.modalCancelBtn, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+                <Text style={[styles.modalCancelText, { color: theme.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleConfirmLogout} style={styles.modalConfirmBtn}>
+              <TouchableOpacity onPress={handleConfirmLogout} style={[styles.modalConfirmBtn, { backgroundColor: theme.error }]}>
                 <Text style={styles.modalConfirmText}>Log Out</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Card>
         </View>
       </Modal>
     </View>
@@ -344,142 +199,54 @@ export default function AdminProfile() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.cream },
-
-  blobTop: {
-    position: 'absolute', width: 280, height: 280, borderRadius: 140,
-    backgroundColor: C.saffron + '18', top: -80, right: -70,
-  },
-  blobBottom: {
-    position: 'absolute', width: 220, height: 220, borderRadius: 110,
-    backgroundColor: C.terra + '12', bottom: -60, left: -50,
-  },
-
+  root: { flex: 1 },
+  blobTop: { position: 'absolute', width: 280, height: 280, borderRadius: 140, top: -80, right: -70 },
+  blobBottom: { position: 'absolute', width: 220, height: 220, borderRadius: 110, bottom: -60, left: -50 },
   scroll: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 48 },
 
-  // Avatar card
-  avatarCard: {
-    backgroundColor: C.white, borderRadius: 28, padding: 28,
-    alignItems: 'center', marginBottom: 16,
-    borderWidth: 1, borderColor: C.border,
-    shadowColor: C.ink, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07, shadowRadius: 16, elevation: 4,
-  },
-  adminRibbon: {
-    position: 'absolute', top: -1,
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: C.terra, paddingHorizontal: 14, paddingVertical: 5,
-    borderTopLeftRadius: 0, borderTopRightRadius: 28,
-    borderBottomLeftRadius: 14, borderBottomRightRadius: 0,
-    alignSelf: 'flex-end', right: 0,
-  },
-  adminRibbonText: {
-    fontSize: 9, fontWeight: '900', color: C.white, letterSpacing: 1,
-  },
-  avatarRing: {
-    width: 96, height: 96, borderRadius: 48,
-    borderWidth: 3, borderColor: C.terra,
-    marginBottom: 14, padding: 2, marginTop: 8,
-  },
+  avatarCard: { alignItems: 'center', paddingVertical: 28, marginBottom: 16 },
+  adminRibbon: { position: 'absolute', top: 0, right: 0, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 5, borderTopRightRadius: 24, borderBottomLeftRadius: 14 },
+  adminRibbonText: { fontSize: 9, fontWeight: '900', color: '#FFFFFF', letterSpacing: 1 },
+  avatarRing: { width: 96, height: 96, borderRadius: 48, borderWidth: 3, marginBottom: 14, padding: 2, marginTop: 8 },
   avatar: { width: '100%', height: '100%', borderRadius: 46 },
+  profileName: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
+  profileEmail: { fontSize: 13, fontWeight: '500', marginBottom: 12 },
+  chefBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  chefBadgeText: { fontSize: 12, fontWeight: '700' },
 
-  profileName: {
-    fontFamily: 'Georgia', fontSize: 20, fontWeight: '700',
-    color: C.ink, marginBottom: 4,
-  },
-  profileEmail: { fontSize: 13, color: C.inkLight, fontWeight: '500', marginBottom: 12 },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 28 },
+  statBox: { flex: 1, paddingVertical: 16, alignItems: 'center', padding: 0 },
+  statVal: { fontSize: 17, fontWeight: '700', marginBottom: 2 },
+  statLbl: { fontSize: 11, fontWeight: '600' },
 
-  chefBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: C.terra + '14', paddingHorizontal: 16, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1, borderColor: C.terra + '30',
-  },
-  chefBadgeText: { fontSize: 12, fontWeight: '700', color: C.terra },
-
-  // Stats row
-  statsRow: {
-    flexDirection: 'row', gap: 12, marginBottom: 28,
-  },
-  statBox: {
-    flex: 1, backgroundColor: C.white, borderRadius: 20, paddingVertical: 16,
-    alignItems: 'center', borderWidth: 1, borderColor: C.border,
-    shadowColor: C.ink, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-  },
-  statVal: {
-    fontFamily: 'Georgia', fontSize: 17, fontWeight: '700',
-    color: C.ink, marginBottom: 2,
-  },
-  statLbl: { fontSize: 11, fontWeight: '600', color: C.inkLight },
-
-  // Section label
-  sectionLabel: {
-    fontSize: 10, fontWeight: '700', letterSpacing: 1.5,
-    color: C.inkLight, marginBottom: 10, paddingHorizontal: 4,
-  },
-
-  settingsCard: {
-    backgroundColor: C.white, borderRadius: 20, paddingHorizontal: 16,
-    borderWidth: 1, borderColor: C.border, marginBottom: 24,
-    shadowColor: C.ink, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-  },
-  settingRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border + '80',
-  },
+  sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginBottom: 10, paddingHorizontal: 4 },
+  settingsCard: { paddingHorizontal: 16, marginBottom: 24, paddingVertical: 0 },
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
   settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconBox: {
-    width: 34, height: 34, borderRadius: 10,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  settingLabel: { fontSize: 15, fontWeight: '600', color: C.ink },
+  iconBox: { width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  settingLabel: { fontSize: 15, fontWeight: '600' },
+  settingSubtitle: { fontSize: 11, marginTop: 1 },
 
-  // Logout
-  logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    height: 54, borderRadius: 16, backgroundColor: C.terra, marginBottom: 20,
-    shadowColor: C.terra, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28, shadowRadius: 10, elevation: 5,
-  },
-  logoutText: { color: C.white, fontSize: 16, fontWeight: '800' },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 54, borderRadius: 16, marginBottom: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
+  logoutText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  versionText: { textAlign: 'center', fontSize: 12, marginTop: 10, fontStyle: 'italic' },
 
-  versionText: {
-    textAlign: 'center', fontSize: 12, color: C.inkLight,
-    fontFamily: 'Georgia', fontStyle: 'italic',
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28 },
+  themeModalCard: { padding: 24, width: '100%', maxWidth: 340, alignItems: 'center' },
+  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginTop: 20 },
+  themeOption: { width: 80, height: 80, borderRadius: 16, borderWidth: 1, justifyContent: 'center', alignItems: 'center', gap: 6 },
+  themeColorCircle: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  themeText: { fontSize: 10, fontWeight: '700' },
+  modalCloseBtn: { marginTop: 20, padding: 10 },
 
-  // Modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(44,26,14,0.45)',
-    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28,
-  },
-  modalCard: {
-    backgroundColor: C.cream, borderRadius: 28, padding: 28,
-    width: '100%', maxWidth: 340, alignItems: 'center',
-    borderWidth: 1, borderColor: C.border,
-  },
-  modalIconCircle: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: C.errorRed + '15',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 16,
-  },
-  modalTitle: {
-    fontFamily: 'Georgia', fontSize: 20, fontWeight: '700',
-    color: C.ink, marginBottom: 8,
-  },
-  modalBody: {
-    fontSize: 14, color: C.inkLight, textAlign: 'center', lineHeight: 20, marginBottom: 24,
-  },
+  modalCard: { borderRadius: 28, padding: 28, width: '100%', maxWidth: 340, alignItems: 'center' },
+  modalIconCircle: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  modalBody: { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
   modalBtns: { flexDirection: 'row', gap: 12, width: '100%' },
-  modalCancelBtn: {
-    flex: 1, height: 48, borderRadius: 14, backgroundColor: C.parchment,
-    justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.border,
-  },
-  modalCancelText: { fontSize: 14, fontWeight: '700', color: C.inkLight },
-  modalConfirmBtn: {
-    flex: 1, height: 48, borderRadius: 14, backgroundColor: C.errorRed,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  modalConfirmText: { fontSize: 14, fontWeight: '700', color: C.white },
+  modalBtn: { flex: 1, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  modalCancelBtn: { flex: 1, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  modalCancelText: { fontSize: 14, fontWeight: '700' },
+  modalConfirmBtn: { flex: 1, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  modalConfirmText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 });

@@ -138,6 +138,7 @@
  * Warm, editorial food aesthetic: cream + terracotta + saffron
  */
 
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import {
@@ -189,9 +190,7 @@ export default function AnimatedSplashOverlay() {
         ]),
         { iterations: 3 }
       ),
-    ]).start(() => {
-      router.replace('/(auth)/login');
-    });
+    ]).start();
   }, []);
 
   return (
@@ -207,9 +206,13 @@ export default function AnimatedSplashOverlay() {
       <Animated.View
         style={[styles.logoWrap, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}
       >
-        {/* Icon plate */}
-        <View style={styles.iconPlate}>
-          <Text style={styles.iconEmoji}>🍳</Text>
+        {/* Logo Image */}
+        <View style={styles.logoCircle}>
+          <Image 
+            source={require('../../assets/images/app-logo/icon4.png')} 
+            style={styles.logoImage}
+            contentFit="contain"
+          />
         </View>
 
         <Text style={styles.brandName}>CookuBuddy</Text>
@@ -288,7 +291,6 @@ const styles = StyleSheet.create({
 
   dotGridOverlay: {
     ...StyleSheet.absoluteFillObject,
-    // React Native can't do CSS backgrounds; rely on the blob tints for texture
   },
 
   // Logo area
@@ -296,25 +298,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
   },
-  iconPlate: {
-    width: 96,
-    height: 96,
-    borderRadius: 28,
+  logoCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: TERRA,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
     shadowColor: TERRA,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 15,
+    overflow: 'hidden',
   },
-  iconEmoji: {
-    fontSize: 48,
+  logoImage: {
+    width: 80,
+    height: 80,
   },
   brandName: {
-    fontFamily: 'Georgia',       // serif for warmth; swap to loaded font if available
+    fontFamily: 'Georgia',
     fontSize: 38,
     fontWeight: '700',
     color: '#2C1A0E',
